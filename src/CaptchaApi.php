@@ -94,6 +94,7 @@ class CaptchaApi
             $this->throwError('短信验证码不存在，请重新获取');
         }
         if ($captcha['times'] <= 0) {
+            $this->cache->delete("captchaSMS.{$phone}");
             $this->throwError('短信验证码已超出错误次数，请重新获取');
         }
         if ($captcha['code'] !== $code) {
@@ -120,6 +121,7 @@ class CaptchaApi
             $this->throwError('图形验证码不存在，请重新获取');
         }
         if ($captcha['times'] <= 0) {
+            $this->cache->delete("captchaApi.{$key}");
             $this->throwError('图形验证码已超出错误次数，请重新获取');
         }
         if (password_verify(mb_strtolower($code, 'UTF-8'), $key) === false) {
