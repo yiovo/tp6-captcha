@@ -51,6 +51,8 @@ class CaptchaApi
     protected $bg = [243, 251, 254];
     //算术验证码
     protected $math = false;
+    //验证码可重复验证的次数
+    protected $checkTimes = 5;
 
     /**
      * 架构方法 设置参数
@@ -62,6 +64,7 @@ class CaptchaApi
     {
         $this->config = $config;
         $this->cache = $cache;
+        $this->configure();
     }
 
     /**
@@ -73,11 +76,8 @@ class CaptchaApi
     public function createSMS(string $phone): array
     {
         $key = rand(100000, 999999);
-        $this->cache->set('captchaSMS.' . $phone, $key, $this->expire);
-        return [
-            'key' => $phone,
-            'code' => $key,
-        ];
+        $this->cache->set("captchaSMS.{$phone}", ['code' => $key, 'times' => $this->checkTimes], $this->expire);
+        return ['key' => $phone, 'code' => $key];
     }
 
     /**
@@ -89,35 +89,50 @@ class CaptchaApi
      */
     public function checkSMS(string $code, string $phone): bool
     {
-        if ($this->cache->get('captchaSMS.' . $phone) === $code) {
-            $this->cache->delete('captchaSMS.' . $phone);
-            return true;
+        $captcha = $this->cache->get("captchaSMS.{$phone}");
+        if (empty($captcha)) {
+            $this->throwError('短信验证码不存在，请重新获取');
         }
-        return false;
+        if ($captcha['times'] <= 0) {
+            $this->throwError('短信验证码已超出错误次数，请重新获取');
+        }
+        if ($captcha['code'] !== $code) {
+            $captcha['times'] -= 1;
+            $this->cache->set("captchaSMS.{$phone}", $captcha);
+            return false;
+        }
+        $this->cache->delete("captchaSMS.{$phone}");
+        return true;
     }
 
     /**
-     * 验证图片验证码是否正确
+     * 验证图形验证码是否正确
      * @access public
      * @param string $code 用户验证码
      * @param string $key 用户验证码key
      * @return bool 用户验证码是否正确
+     * @throws Exception
      */
     public function check(string $code, string $key): bool
     {
-        if ($this->cache->get('captchaApi.' . $key)) {
-            $code = mb_strtolower($code, 'UTF-8');
-            $res = password_verify($code, $key);
-            if (password_verify($code, $key)) {
-                $this->cache->delete('captchaApi.' . $key);
-                return true;
-            }
+        $captcha = $this->cache->get("captchaApi.{$key}");
+        if (empty($captcha)) {
+            $this->throwError('图形验证码不存在，请重新获取');
         }
-        return false;
+        if ($captcha['times'] <= 0) {
+            $this->throwError('图形验证码已超出错误次数，请重新获取');
+        }
+        if (password_verify(mb_strtolower($code, 'UTF-8'), $key) === false) {
+            $captcha['times'] -= 1;
+            $this->cache->set("captchaApi.{$key}", $captcha);
+            return false;
+        }
+        $this->cache->delete("captchaApi.{$key}");
+        return true;
     }
 
     /**
-     * 生成图片验证码并把验证码的值保存的缓存中
+     * 生成图形验证码并把验证码的值保存的缓存中
      * @access public
      * @param null|string $config
      * @param bool $api
@@ -126,8 +141,6 @@ class CaptchaApi
      */
     public function create(string $config = null, bool $api = false): array
     {
-        $this->configure($config);
-
         $generator = $this->generate();
 
         // 图片宽(px)
@@ -208,7 +221,6 @@ class CaptchaApi
         } else {
             $config = $this->config->get('captcha.' . $config, []);
         }
-
         foreach ($config as $key => $val) {
             if (property_exists($this, $key)) {
                 $this->{$key} = $val;
@@ -217,7 +229,7 @@ class CaptchaApi
     }
 
     /**
-     * 创建验证码
+     * 创建图形验证码的值
      * @return array
      * @throws Exception
      */
@@ -249,7 +261,7 @@ class CaptchaApi
         }
 
         $hash = password_hash($key, PASSWORD_BCRYPT, ['cost' => 10]);
-        $this->cache->set('captchaApi.' . $hash, $key, $this->expire);
+        $this->cache->set("captchaApi.{$hash}", ['code' => $key, 'times' => $this->checkTimes], $this->expire);
 
         return [
             'value' => $bag,
@@ -358,5 +370,15 @@ class CaptchaApi
         $bgImage = @imagecreatefromjpeg($gb);
         @imagecopyresampled($this->im, $bgImage, 0, 0, 0, 0, $this->imageW, $this->imageH, $width, $height);
         @imagedestroy($bgImage);
+    }
+
+    /**
+     * 输出报错信息
+     * @param string $message
+     * @throws Exception
+     */
+    private function throwError(string $message)
+    {
+        throw new Exception($message);
     }
 }
