@@ -12,7 +12,8 @@
     "php": ">=7.1.0",
     "ext-mbstring": "*",
     "ext-gd": "*",
-    "topthink/framework": "^6.0.0"
+    "topthink/framework": "^6.0.0",
+    "yiovo/tp6-cache": "^1.0"
   },
   "homepage": "https://github.com/yiovo/tp6-captcha",
   "autoload": {

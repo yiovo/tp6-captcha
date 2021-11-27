@@ -3,7 +3,7 @@
 namespace yiovo\captcha;
 
 use Exception;
-use think\Cache;
+use yiovo\cache\Cache;
 use think\Config;
 
 class CaptchaApi
@@ -98,8 +98,7 @@ class CaptchaApi
             $this->throwError('短信验证码已超出错误次数，请重新获取');
         }
         if ($captcha['code'] !== $code) {
-            $captcha['times'] -= 1;
-            $this->cache->set("captchaSMS.{$phone}", $captcha);
+            $this->cache->update("captchaSMS.{$phone}", ['times' => $captcha['times'] - 1]);
             return false;
         }
         $this->cache->delete("captchaSMS.{$phone}");
@@ -125,8 +124,7 @@ class CaptchaApi
             $this->throwError('图形验证码已超出错误次数，请重新获取');
         }
         if (password_verify(mb_strtolower($code, 'UTF-8'), $key) === false) {
-            $captcha['times'] -= 1;
-            $this->cache->set("captchaApi.{$key}", $captcha);
+            $this->cache->update("captchaApi.{$key}", ['times' => $captcha['times'] - 1]);
             return false;
         }
         $this->cache->delete("captchaApi.{$key}");
