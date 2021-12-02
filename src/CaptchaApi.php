@@ -75,9 +75,9 @@ class CaptchaApi
      */
     public function createSMS(string $phone): array
     {
-        $key = rand(100000, 999999);
-        $this->cache->set("captchaSMS.{$phone}", ['code' => $key, 'times' => $this->checkTimes], $this->expire);
-        return ['key' => $phone, 'code' => $key];
+        $code = (string)mt_rand(100000, 999999);
+        $this->cache->set("captchaSMS.{$phone}", ['code' => $code, 'times' => $this->checkTimes], $this->expire);
+        return ['key' => $phone, 'code' => $code];
     }
 
     /**
@@ -97,7 +97,7 @@ class CaptchaApi
             $this->cache->delete("captchaSMS.{$phone}");
             $this->throwError('短信验证码已超出错误次数，请重新获取');
         }
-        if ($captcha['code'] !== $code) {
+        if ($captcha['code'] != $code) {
             $this->cache->update("captchaSMS.{$phone}", ['times' => $captcha['times'] - 1]);
             return false;
         }
