@@ -99,7 +99,7 @@ class CaptchaApi
         }
         if ($captcha['code'] != $code) {
             $this->cache->update("captchaSMS.{$phone}", ['times' => $captcha['times'] - 1]);
-            return false;
+            $this->throwError('短信验证码不正确，请重新填写');
         }
         $this->cache->delete("captchaSMS.{$phone}");
         return true;
